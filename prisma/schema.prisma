@@ -1,0 +1,143 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Link {
+  id            String   @id @default(cuid())
+  shortCode     String   @unique
+  originalUrl   String   @db.Text
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime?
+  isMalicious   Boolean  @default(false)
+  safetyScore   Int?
+  safetyCategory String?
+  safetyWarnings String? @db.Text // JSON string
+  ipAddress     String?
+  userId        String?  // Anonymous user UUID
+  
+  // Relations
+  analytics     LinkAnalytics?
+  visits        Visit[]
+  reports       Report[]
+  appeals       Appeal[]
+  
+  @@index([shortCode])
+  @@index([ipAddress])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([isMalicious])
+}
+
+model LinkAnalytics {
+  id              String   @id @default(cuid())
+  linkId          String   @unique
+  link            Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  clicks          Int      @default(0)
+  uniqueVisitors  Int      @default(0)
+  lastClickedAt   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([linkId])
+}
+
+model Visit {
+  id          String   @id @default(cuid())
+  linkId      String
+  link        Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  ipAddress   String
+  userAgent   String?  @db.Text
+  referer     String?  @db.Text
+  country     String?
+  timestamp   DateTime @default(now())
+  
+  @@index([linkId])
+  @@index([ipAddress])
+  @@index([timestamp])
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  shortCode   String
+  link        Link     @relation(fields: [shortCode], references: [shortCode], onDelete: Cascade)
+  reason      String   @db.Text
+  reporterIp  String
+  status      String   @default("pending") // pending, approved, rejected
+  category    String?
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+  
+  @@index([shortCode])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Appeal {
+  id           String   @id @default(cuid())
+  shortCode    String
+  link         Link     @relation(fields: [shortCode], references: [shortCode], onDelete: Cascade)
+  reason       String   @db.Text
+  appellantIp  String
+  status       String   @default("pending") // pending, approved, rejected
+  contactInfo  String?  @db.Text
+  createdAt    DateTime @default(now())
+  resolvedAt  DateTime?
+  
+  @@index([shortCode])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model IpBlock {
+  id          String   @id @default(cuid())
+  ipAddress   String   @unique
+  reason      String   @db.Text
+  blockedAt   DateTime @default(now())
+  expiresAt   DateTime?
+  status      String   @default("active") // active, expired, removed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  appeals     IpAppeal[]
+  
+  @@index([ipAddress])
+  @@index([status])
+  @@index([blockedAt])
+}
+
+model IpAppeal {
+  id           String   @id @default(cuid())
+  ipAddress    String
+  ipBlock      IpBlock  @relation(fields: [ipAddress], references: [ipAddress], onDelete: Cascade)
+  reason       String   @db.Text
+  appellantIp  String
+  status       String   @default("pending") // pending, approved, rejected
+  contactInfo  String?  @db.Text
+  createdAt    DateTime @default(now())
+  resolvedAt   DateTime?
+  
+  @@index([ipAddress])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([key])
+}
+

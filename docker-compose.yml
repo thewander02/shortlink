@@ -1,0 +1,18 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: shortlink-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shortlink
+      POSTGRES_PASSWORD: shortlink
+      POSTGRES_DB: shortlink
+    ports:
+      - '5433:5432'
+    volumes:
+      - shortlink_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  shortlink_postgres_data:

@@ -700,6 +700,9 @@ export async function togglePanicMode(adminKey: string, enabled: boolean): Promi
 			create: { key: 'panic_mode', value: enabled ? 'true' : 'false' }
 		});
 
+		const { invalidatePanicModeCache } = await import('../cache');
+		await invalidatePanicModeCache();
+
 		return true;
 	} catch (error) {
 		console.error('Error toggling panic mode:', error);

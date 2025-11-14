@@ -1,7 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
-import { isIpBlocked, checkRateLimit } from '$lib/cache';
+import { isIpBlocked, checkRateLimit, isPanicModeEnabled } from '$lib/cache';
 import { getClientIp } from '$lib/utils/ip';
-import { prisma } from '$lib/prisma';
 import {
 	RATE_LIMIT_SHORTENING,
 	RATE_LIMIT_GENERAL,
@@ -33,11 +32,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	if (path === '/api/shorten') {
-		const panicMode = await prisma.systemSetting.findUnique({
-			where: { key: 'panic_mode' }
-		});
-
-		if (panicMode?.value === 'true') {
+		// Use cached panic mode check to avoid DB queries
+		if (await isPanicModeEnabled()) {
 			return new Response(JSON.stringify({ error: 'URL shortening is temporarily disabled' }), {
 				status: 503,
 				headers: { 'Content-Type': 'application/json' }

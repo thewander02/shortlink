@@ -157,3 +157,71 @@ export async function getCachedAnalytics<T>(shortCode: string): Promise<T | null
 		return null;
 	}
 }
+
+/**
+ * Cache panic mode status (with short TTL for quick updates)
+ */
+const PANIC_MODE_CACHE_TTL = 30;
+let panicModeCache: { value: boolean; expires: number } | null = null;
+
+/**
+ * Check if panic mode is enabled (cached to reduce DB queries)
+ */
+export async function isPanicModeEnabled(): Promise<boolean> {
+	if (panicModeCache && panicModeCache.expires > Date.now()) {
+		return panicModeCache.value;
+	}
+
+	if (isRedisAvailable() && redis) {
+		try {
+			const cached = await redis.get<string>('system:panic_mode');
+			if (cached !== null) {
+				const value = cached === 'true';
+				panicModeCache = { value, expires: Date.now() + PANIC_MODE_CACHE_TTL * 1000 };
+				return value;
+			}
+		} catch (error) {
+			console.error('Error checking panic mode in Redis:', error);
+		}
+	}
+
+	try {
+		const { prisma } = await import('./prisma');
+		const setting = await prisma.systemSetting.findUnique({
+			where: { key: 'panic_mode' },
+			select: { value: true }
+		});
+
+		const value = setting?.value === 'true';
+		
+		panicModeCache = { value, expires: Date.now() + PANIC_MODE_CACHE_TTL * 1000 };
+		
+		if (isRedisAvailable() && redis) {
+			try {
+				await redis.set('system:panic_mode', setting?.value || 'false', { ex: PANIC_MODE_CACHE_TTL });
+			} catch (error) {
+				console.error('Error caching panic mode in Redis:', error);
+			}
+		}
+
+		return value;
+	} catch (error) {
+		console.error('Error checking panic mode in database:', error);
+		// Fail open: if we can't check, don't block requests
+		return false;
+	}
+}
+
+/**
+ * Invalidate panic mode cache (call when panic mode is toggled)
+ */
+export async function invalidatePanicModeCache(): Promise<void> {
+	panicModeCache = null;
+	if (isRedisAvailable() && redis) {
+		try {
+			await redis.del('system:panic_mode');
+		} catch (error) {
+			console.error('Error invalidating panic mode cache:', error);
+		}
+	}
+}

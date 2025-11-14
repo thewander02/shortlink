@@ -373,7 +373,7 @@
 
 	<footer class="relative z-10 container mx-auto py-6 sm:py-8">
 		<div class="flex flex-col items-center gap-4">
-			<p class="text-center text-xs text-gray-500 sm:text-sm">Simple. Secure. Swift.</p>
+			<p class="text-center text-xs text-gray-500 sm:text-sm">Simple. Swift. Secure.</p>
 			<div class="flex items-center gap-1 text-xs text-gray-500">
 				<span>Created by</span>
 				<a
